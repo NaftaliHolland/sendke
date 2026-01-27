@@ -149,6 +149,18 @@ export function Home({ formDefaults }: HomeProps = {}) {
 
   return (
     <div className="flex flex-col bg-gray-100">
+      {/* Mobile Header - visible only on mobile */}
+      <header className="w-full py-2 px-4 sm:px-6 lg:px-8 bg-white shadow-sm md:hidden relative z-10">
+        <div className="max-w-7xl mx-auto flex-col justify-center flex items-center">
+          <h1 className="text-2xl font-display sm:text-3xl font-bold text-green-600">
+            send.ke
+          </h1>
+          <h3 className="text-md font-display text-gray-800 mt-2 max-w-md">
+            Your {getPaymentTypeText()} 🤝 Payment Poster
+          </h3>
+        </div>
+      </header>
+
       <div className="flex-1 flex flex-col md:flex-row px-4 py-4 sm:py-8 md:py-0 sm:px-6 lg:px-8 gap-8 relative z-10">
         {/* Left Column - App Info */}
         <div className="w-full md:w-1/2 flex flex-col justify-center md:py-12 md:px-8">
