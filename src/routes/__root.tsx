@@ -59,7 +59,7 @@ export const Route = createRootRoute({
 
   component: () => (
     <RootDocument>
-      <div className="min-h-screen flex flex-col bg-gray-100 overflow-x-hidden relative">
+      <div className="min-h-dvh md:h-dvh flex flex-col bg-gray-100 overflow-x-hidden md:overflow-hidden relative">
         {/* Dotted background pattern */}
         <div
           className="absolute h-full w-full inset-0 pointer-events-none"
@@ -72,7 +72,7 @@ export const Route = createRootRoute({
           }}
         />
 
-        <main className="flex flex-col">
+        <main className="flex-1 min-h-0 flex flex-col">
           <Outlet />
         </main>
 

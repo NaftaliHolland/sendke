@@ -7,6 +7,7 @@ export interface PaymentForm {
   accountNumber?: string;
   tillNumber?: string;
   name?: string;
+  businessName?: string;
   selectedColor: string;
   showName: boolean;
   showQrCode: boolean;
@@ -14,13 +15,3 @@ export interface PaymentForm {
   fontScale: number;
 }
 
-export interface Template {
-  name: string;
-  slug: string;
-  description: string;
-  size: {
-    width: number;
-    height: number;
-    label: string;
-  };
-}

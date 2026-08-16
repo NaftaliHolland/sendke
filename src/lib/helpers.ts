@@ -53,14 +53,15 @@ export const formatBusinessNumber = (value: string): string => {
   }
 };
 
-export const formatAccountNumber = (value: string): string => {
-  const numbers = value.replace(/\D/g, "");
-  if (numbers.length === 0) return "";
+export const ACCOUNT_NUMBER_MAX_LENGTH = 24;
 
-  // Format numbers into groups of 4 digits
+export const formatAccountNumber = (value: string): string => {
+  const cleaned = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  if (cleaned.length === 0) return "";
+
   const groups = [];
-  for (let i = 0; i < numbers.length; i += 4) {
-    groups.push(numbers.slice(i, i + 4));
+  for (let i = 0; i < cleaned.length; i += 4) {
+    groups.push(cleaned.slice(i, i + 4));
   }
   return groups.join(" ");
 };

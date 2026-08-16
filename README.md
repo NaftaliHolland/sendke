@@ -73,35 +73,19 @@ npm run build
 yarn build
 ```
 
-## 🌍 Contributing New Business Templates
+## Print sizes
 
-We welcome contributions of new business templates for different types of small businesses in Kenya and beyond! Help make send.ke more useful for everyone.
+Posters are sized for how they'll be used, not for a business type. Shop names go in the optional overlay field on the poster.
 
-### How to Add a New Template
+| Size | Use |
+| --- | --- |
+| A5 stall | Printed A5 for a stall or counter |
+| A4 shop wall | Printed A4 for a wall or window |
+| Helmet / landscape | Boda helmets, carts, wide displays |
+| Square sticker | Stickers and square prints |
+| WhatsApp story | Status, Stories, and phone screens |
 
-1. Fork the repository
-2. Edit the `src/data/templates.json` file to add your new business type
-3. Follow this format for each new entry:
-
-```json
-{
-  "name": "Business Name", // Display name (e.g., "Mitumba Seller")
-  "slug": "business-slug", // URL-friendly identifier (e.g., "mitumba-seller")
-  "description": "Short description of the business type",
-  "size": {
-    "width": 1200, // Recommended width in pixels
-    "height": 675, // Recommended height in pixels
-    "label": "Standard Format" // Format label (typically "Standard Format" or "Other Format")
-  }
-}
-```
-
-4. Submit a pull request with your changes
-5. In your PR description, include:
-   - Why this business type would benefit from send.ke
-   - Any specific sizing considerations for this business
-
-We especially welcome templates for small, one-person businesses in the informal sector!
+Sizes live in `src/data/poster-sizes.ts`.
 
 ## 🛠️ Technologies Used
 
