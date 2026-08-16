@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   CheckIcon,
@@ -7,17 +7,18 @@ import {
   LockIcon,
   QrCodeIcon,
   InfoIcon,
+  PrinterIcon,
+  Share2Icon,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
-import { Card, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import templates from "@/data/templates.json";
-import { BsTwitterX } from "react-icons/bs";
+import { DEFAULT_POSTER_SIZE, POSTER_SIZES, BUSINESS_NAME_MAX_LENGTH } from "@/data/poster-sizes";
 import {
   Tooltip,
   TooltipContent,
@@ -28,8 +29,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { PaymentForm, PaymentType } from "@/types/PaymentForm";
 import { FORM_DEFAULT_VALUES, formSchema } from "@/schemas/form";
 import { PosterPreview } from "@/components/poster-preview";
-import { downloadPoster } from "@/utils/poster-download";
+import { usePosterImage } from "@/hooks/use-poster-image";
 import {
+  ACCOUNT_NUMBER_MAX_LENGTH,
   formatAccountNumber,
   formatBusinessNumber,
   formatPhoneNumber,
@@ -44,8 +46,10 @@ interface HomeProps {
 }
 
 export function Home({ formDefaults }: HomeProps = {}) {
-  const posterRef = useRef<HTMLDivElement>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0]);
+  const [selectedSize, setSelectedSize] = useState(DEFAULT_POSTER_SIZE);
+  const [exporting, setExporting] = useState<
+    "download" | "share" | "print" | null
+  >(null);
 
   const mergedDefaults = { ...FORM_DEFAULT_VALUES, ...formDefaults };
 
@@ -67,6 +71,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
     accountNumber,
     tillNumber,
     name,
+    businessName,
     selectedColor,
     showName,
     showQrCode,
@@ -116,23 +121,40 @@ export function Home({ formDefaults }: HomeProps = {}) {
 
   const displayValues = getCurrentDisplayValues();
 
+  const poster = usePosterImage({
+    selectedSize,
+    selectedColor: selectedColor || "#16a34a",
+    paymentType: paymentType || "SEND_MONEY",
+    showName: showName || false,
+    showQrCode: showQrCode || false,
+    title: title || "SEND MONEY",
+    fontScale: fontScale || 1.0,
+    businessName: businessName || "",
+    displayValues,
+  });
+
   const onSubmit = handleSubmit(async () => {
     await handleDownload();
   });
 
-  const handleDownload = async () => {
-    await downloadPoster({
-      posterRef,
-      selectedTemplate,
-      selectedColor: selectedColor || "#16a34a",
-      paymentType: paymentType || "SEND_MONEY",
-      showName: showName || false,
-      showQrCode: showQrCode || false,
-      title: title || "SEND MONEY",
-      fontScale: fontScale || 1.0,
-      displayValues,
-    });
+  const withExport = async (
+    action: "download" | "share" | "print",
+    run: () => Promise<unknown>
+  ) => {
+    if (exporting) return;
+    setExporting(action);
+    try {
+      await run();
+    } catch (error) {
+      console.error(`Error while trying to ${action} poster:`, error);
+    } finally {
+      setExporting(null);
+    }
   };
+
+  const handleDownload = () => withExport("download", poster.download);
+  const handleShare = () => withExport("share", poster.share);
+  const handlePrint = () => withExport("print", poster.print);
 
   const getPaymentTypeText = () => {
     switch (paymentType) {
@@ -148,7 +170,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
   };
 
   return (
-    <div className="flex flex-col bg-gray-100">
+    <div className="flex flex-col flex-1 min-h-0 bg-gray-100">
       {/* Mobile Header - visible only on mobile */}
       <header className="w-full py-2 px-4 sm:px-6 lg:px-8 bg-white shadow-sm md:hidden relative z-10">
         <div className="max-w-7xl mx-auto flex-col justify-center flex items-center">
@@ -161,48 +183,69 @@ export function Home({ formDefaults }: HomeProps = {}) {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row px-4 py-4 sm:py-8 md:py-0 sm:px-6 lg:px-8 gap-8 relative z-10">
+      <div className="flex-1 flex flex-col md:flex-row md:min-h-0 md:overflow-hidden px-4 py-3 md:py-3 sm:px-6 lg:px-8 gap-4 md:gap-4 relative z-10">
         {/* Left Column - App Info */}
-        <div className="w-full md:w-1/2 flex flex-col justify-center md:py-12 md:px-8">
+        <div className="w-full md:w-1/2 flex flex-col justify-start md:h-full md:min-h-0 lg:px-4">
           {/* Header for medium screens and up - now in left column */}
-          <div className="hidden md:block mb-8">
-            <h1 className="text-4xl font-display font-bold text-green-600">
-              send.ke
-            </h1>
-            <h3 className="text-lg font-display text-gray-800 mt-2 max-w-md">
-              Your {getPaymentTypeText()} 🤝 Payment Poster
-            </h3>
-          </div>
+          <div className="hidden md:flex md:items-end md:justify-between md:gap-4 mb-3">
+            <div>
+              <h1 className="text-3xl font-display font-bold text-green-600 leading-none">
+                send.ke
+              </h1>
+              <h2 className="text-base font-display text-gray-800 mt-1">
+                Your {getPaymentTypeText()} 🤝 Payment Poster
+              </h2>
+            </div>
 
-          {/* App features */}
-          <div className="flex flex-row gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-green-100 hover:border-green-400 cursor-pointer">
-              <CheckIcon className="w-5 h-5 text-green-600 mr-1" />
-              <span className="text-sm text-gray-700">100% Free</span>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-blue-100 hover:border-blue-400 cursor-pointer">
-              <LockIcon className="w-5 h-5 text-blue-600 mr-1" />
-              <span className="text-sm text-gray-700">Works Offline</span>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-purple-100 hover:border-purple-400 cursor-pointer">
-              <GithubIcon className="w-5 h-5 text-purple-600 mr-1" />
+            <div className="flex flex-row gap-2 shrink-0">
+              <div className="bg-white rounded-md px-2 py-1 flex items-center border border-green-100">
+                <CheckIcon className="w-4 h-4 text-green-600 mr-1" />
+                <span className="text-xs text-gray-700">100% Free</span>
+              </div>
+              <div className="bg-white rounded-md px-2 py-1 flex items-center border border-blue-100">
+                <LockIcon className="w-4 h-4 text-blue-600 mr-1" />
+                <span className="text-xs text-gray-700">Works Offline</span>
+              </div>
               <a
                 href="https://github.com/DavidAmunga/sendke"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-gray-700 hover:text-gray-900"
+                className="bg-white rounded-md px-2 py-1 flex items-center border border-gray-200 hover:border-gray-400"
               >
-                Open Source
+                <GithubIcon className="w-4 h-4 text-gray-600 mr-1" />
+                <span className="text-xs text-gray-700">Open Source</span>
               </a>
             </div>
           </div>
 
-          <Card className="">
-            <CardTitle className="px-6 text-xl  font-bold text-gray-900">
+          {/* App features — mobile only; desktop chips sit in the header */}
+          <div className="flex flex-row gap-2 mb-4 md:hidden">
+            <div className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-green-100">
+              <CheckIcon className="w-5 h-5 text-green-600 mr-1" />
+              <span className="text-sm text-gray-700">100% Free</span>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-blue-100">
+              <LockIcon className="w-5 h-5 text-blue-600 mr-1" />
+              <span className="text-sm text-gray-700">Works Offline</span>
+            </div>
+            <a
+              href="https://github.com/DavidAmunga/sendke"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white rounded-lg shadow-sm px-3 py-2 flex items-center border border-gray-200"
+            >
+              <GithubIcon className="w-5 h-5 text-gray-600 mr-1" />
+              <span className="text-sm text-gray-700">Open Source</span>
+            </a>
+          </div>
+
+          <Card className="gap-3 py-4 md:gap-2 md:py-3 md:flex-1 md:min-h-0">
+            <CardTitle className="px-4 md:hidden text-lg font-bold text-gray-900">
               Make Your Payment Poster
             </CardTitle>
 
-            <CardContent>
+            <CardContent className="px-4 md:px-5 flex flex-col flex-1 min-h-0">
+              <div className="flex-1 min-h-0 md:overflow-y-auto">
               <Controller
                 name="paymentType"
                 control={control}
@@ -219,7 +262,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                     }}
                     className="w-full"
                   >
-                    <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsList className="grid w-full grid-cols-3 mb-3">
                       <TabsTrigger
                         value="SEND_MONEY"
                         className="text-xs sm:text-sm"
@@ -240,8 +283,8 @@ export function Home({ formDefaults }: HomeProps = {}) {
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="SEND_MONEY" className="space-y-4">
-                      <form onSubmit={onSubmit} className="space-y-4">
+                    <TabsContent value="SEND_MONEY" className="space-y-3">
+                      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
                         <div>
                           <label
                             htmlFor="title"
@@ -259,7 +302,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                 type="text"
                                 value={field.value}
                                 onChange={field.onChange}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="SEND MONEY"
                               />
                             )}
@@ -296,7 +339,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                     field.onChange(formatPhoneNumber(value));
                                   }
                                 }}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="0712 345 678"
                               />
                             )}
@@ -310,9 +353,9 @@ export function Home({ formDefaults }: HomeProps = {}) {
                       </form>
                     </TabsContent>
 
-                    <TabsContent value="PAYBILL" className="space-y-4">
-                      <form onSubmit={onSubmit} className="space-y-4">
-                        <div>
+                    <TabsContent value="PAYBILL" className="space-y-3">
+                      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
+                        <div className="md:col-span-2">
                           <label
                             htmlFor="title"
                             className="block text-sm font-medium text-gray-700 mb-1"
@@ -329,7 +372,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                 autoComplete="off"
                                 value={field.value}
                                 onChange={field.onChange}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="SEND MONEY"
                               />
                             )}
@@ -366,7 +409,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                     field.onChange(formatBusinessNumber(value));
                                   }
                                 }}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="123 456"
                               />
                             )}
@@ -394,15 +437,23 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                 type="text"
                                 value={field.value || ""}
                                 onChange={(e) => {
-                                  const value = e.target.value.replace(
-                                    /\D/g,
+                                  const cleaned = e.target.value.replace(
+                                    /[^a-zA-Z0-9]/g,
                                     ""
                                   );
-                                  field.onChange(formatAccountNumber(value));
+                                  if (
+                                    cleaned.length <= ACCOUNT_NUMBER_MAX_LENGTH
+                                  ) {
+                                    field.onChange(
+                                      formatAccountNumber(e.target.value)
+                                    );
+                                  }
                                 }}
                                 autoComplete="off"
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
-                                placeholder="123 456"
+                                inputMode="text"
+                                autoCapitalize="characters"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
+                                placeholder="SHOP 01"
                               />
                             )}
                           />
@@ -411,12 +462,15 @@ export function Home({ formDefaults }: HomeProps = {}) {
                               {errors.accountNumber.message}
                             </p>
                           )}
+                          <p className="mt-1 text-xs text-gray-500">
+                            Letters and numbers are allowed
+                          </p>
                         </div>
                       </form>
                     </TabsContent>
 
-                    <TabsContent value="TILL_NUMBER" className="space-y-4">
-                      <form onSubmit={onSubmit} className="space-y-4">
+                    <TabsContent value="TILL_NUMBER" className="space-y-3">
+                      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
                         <div>
                           <label
                             htmlFor="title"
@@ -433,7 +487,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                 type="text"
                                 value={field.value}
                                 onChange={field.onChange}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="SEND MONEY"
                               />
                             )}
@@ -469,7 +523,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                                     field.onChange(formatBusinessNumber(value));
                                   }
                                 }}
-                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                                 placeholder="123 456"
                               />
                             )}
@@ -487,26 +541,28 @@ export function Home({ formDefaults }: HomeProps = {}) {
               />
 
               {/* Common Options Outside Tabs */}
-              <div className="space-y-4 mt-6">
+              <div className="space-y-3 mt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Font Size: {Math.round(fontScale * 100)}%
-                  </label>
-                  <Controller
-                    name="fontScale"
-                    control={control}
-                    render={({ field }) => (
-                      <Slider
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
-                        min={0.7}
-                        max={1.8}
-                        step={0.1}
-                        className="w-full"
-                      />
-                    )}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex items-center gap-3">
+                    <label className="shrink-0 text-sm font-medium text-gray-700">
+                      Font Size: {Math.round(fontScale * 100)}%
+                    </label>
+                    <Controller
+                      name="fontScale"
+                      control={control}
+                      render={({ field }) => (
+                        <Slider
+                          value={[field.value]}
+                          onValueChange={(value) => field.onChange(value[0])}
+                          min={0.7}
+                          max={1.8}
+                          step={0.1}
+                          className="w-full"
+                        />
+                      )}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1 md:hidden">
                     <span>70%</span>
                     <span>100%</span>
                     <span>180%</span>
@@ -555,7 +611,7 @@ export function Home({ formDefaults }: HomeProps = {}) {
                           onChange={(e) => {
                             field.onChange(e.target.value.toUpperCase());
                           }}
-                          className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-lg font-semibold"
+                          className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
                           placeholder="JOHN DOE"
                         />
                       )}
@@ -568,8 +624,47 @@ export function Home({ formDefaults }: HomeProps = {}) {
                   </div>
                 )}
 
+                <div>
+                  <label
+                    htmlFor="businessName"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Shop or business name
+                    <span className="font-normal text-gray-500"> Optional</span>
+                  </label>
+                  <Controller
+                    name="businessName"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="businessName"
+                        type="text"
+                        value={field.value || ""}
+                        onChange={(e) => {
+                          const next = e.target.value.toUpperCase();
+                          if (next.length <= BUSINESS_NAME_MAX_LENGTH) {
+                            field.onChange(next);
+                          }
+                        }}
+                        autoComplete="off"
+                        className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:outline-none text-base font-semibold"
+                        placeholder="MAMA MBOGA"
+                      />
+                    )}
+                  />
+                  {errors.businessName && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {errors.businessName.message}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 md:hidden">
+                    Shown as a small label at the bottom of the poster
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 {paymentType !== "PAYBILL" && (
-                  <div className="flex items-center space-x-2 mb-2">
+                  <div className="flex items-center space-x-2">
                     <Controller
                       name="showQrCode"
                       control={control}
@@ -606,11 +701,11 @@ export function Home({ formDefaults }: HomeProps = {}) {
                     </label>
                   </div>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                <div className="min-w-0">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 md:sr-only">
                     Poster Color
                   </label>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-3">
                     {colorOptions.map((color) => (
                       <button
                         key={color.value}
@@ -640,72 +735,79 @@ export function Home({ formDefaults }: HomeProps = {}) {
                           />
                         )}
                       />
-                      <span className="ml-2 text-xs text-gray-500">Custom</span>
+                      <span className="ml-2 text-xs text-gray-500 md:hidden">Custom</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Download Button */}
-                <motion.div
-                  whileHover={{
-                    scale: 1.05,
-                    transition: {
-                      duration: 0.2,
-                    },
-                  }}
-                >
-                  <Button
-                    onClick={handleDownload}
-                    disabled={!isValid}
-                    className="w-full bg-gray-800 text-white text-xl font-bold py-8 rounded-lg shadow-lg hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    DOWNLOAD
-                  </Button>
-                </motion.div>
+                </div>
+              </div>
               </div>
             </CardContent>
+            <CardFooter className="px-4 md:px-5 flex-col items-stretch gap-2 shrink-0">
+              <motion.div
+                whileHover={{
+                  scale: 1.02,
+                  transition: {
+                    duration: 0.2,
+                  },
+                }}
+              >
+                <Button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={!isValid || exporting !== null}
+                  className="w-full bg-gray-800 text-white text-xl md:text-lg font-bold py-8 md:py-5 rounded-lg shadow-lg hover:bg-gray-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {exporting === "download" ? "PREPARING…" : "DOWNLOAD"}
+                </Button>
+              </motion.div>
+              <div
+                className={
+                  poster.supportsShare
+                    ? "grid grid-cols-2 gap-2 w-full"
+                    : "grid grid-cols-1 w-full"
+                }
+              >
+                {poster.supportsShare && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleShare}
+                    disabled={!isValid || exporting !== null}
+                    className="h-12 md:h-10 border-gray-800 text-gray-800 font-semibold hover:bg-gray-800 hover:text-white"
+                  >
+                    <Share2Icon className="h-4 w-4" />
+                    {exporting === "share" ? "Preparing…" : "Share"}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrint}
+                  disabled={!isValid || exporting !== null}
+                  className="h-12 md:h-10 border-gray-800 text-gray-800 font-semibold hover:bg-gray-800 hover:text-white"
+                >
+                  <PrinterIcon className="h-4 w-4" />
+                  {exporting === "print" ? "Preparing…" : "Print"}
+                </Button>
+              </div>
+            </CardFooter>
           </Card>
 
-          <div className="text-center text-gray-500 mt-2 text-sm">
+          <div className="text-center text-gray-500 mt-2 text-sm md:hidden">
             Download It, Share It , Stick it anywhere !
           </div>
         </div>
 
         {/* Right Column - Poster Preview */}
         <PosterPreview
-          ref={posterRef}
-          selectedTemplate={selectedTemplate}
-          paymentType={paymentType || "SEND_MONEY"}
-          selectedColor={selectedColor || "#16a34a"}
-          showName={showName || false}
-          showQrCode={showQrCode || false}
-          title={title || "SEND MONEY"}
-          fontScale={fontScale || 1.0}
-          displayValues={displayValues}
-          templates={templates}
-          onTemplateSelect={setSelectedTemplate}
+          previewUrl={poster.previewUrl}
+          isRendering={poster.isRendering}
+          error={poster.error}
+          selectedSize={selectedSize}
+          sizes={POSTER_SIZES}
+          onSizeSelect={setSelectedSize}
         />
-      </div>
-
-      {/* Twitter CTA for Template Contributions */}
-      <div className="w-full py-4 bg-gray-50 border-t border-gray-100 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center sm:justify-between">
-          <div className="flex items-center mb-3 sm:mb-0">
-            <BsTwitterX className="w-4 h-4 mr-2" />
-            <span className="font-medium text-gray-700">
-              Have a business that needs a template?
-            </span>
-          </div>
-          <a
-            href="https://x.com/davidamunga_"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
-          >
-            <BsTwitterX className="w-4 h-4 mr-2 text-white" />
-            Tweet @davidamunga_ to suggest new templates
-          </a>
-        </div>
       </div>
     </div>
   );

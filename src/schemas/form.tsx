@@ -1,4 +1,5 @@
 import type { PaymentForm } from "@/types/PaymentForm";
+import { BUSINESS_NAME_MAX_LENGTH } from "@/data/poster-sizes";
 import { z } from "zod";
 
 export const formSchema = z
@@ -9,6 +10,7 @@ export const formSchema = z
     accountNumber: z.string().optional(),
     tillNumber: z.string().optional(),
     name: z.string().optional(),
+    businessName: z.string().max(BUSINESS_NAME_MAX_LENGTH).optional(),
     selectedColor: z.string(),
     showName: z.boolean(),
     showQrCode: z.boolean(),
@@ -57,6 +59,7 @@ export const FORM_DEFAULT_VALUES: PaymentForm = {
   accountNumber: "",
   tillNumber: "",
   name: "",
+  businessName: "",
   selectedColor: "#16a34a",
   showName: true,
   showQrCode: true,

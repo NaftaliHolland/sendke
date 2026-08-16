@@ -1,9 +1,9 @@
 import { useRef, useState, useEffect } from "react";
-import templates from "@/data/templates.json";
+import { DEFAULT_POSTER_SIZE } from "@/data/poster-sizes";
 
 export function EmbedUI() {
   const posterRef = useRef<HTMLDivElement>(null);
-  const [selectedTemplate] = useState(templates[0]);
+  const [selectedSize] = useState(DEFAULT_POSTER_SIZE);
   const [searchParams, setSearchParams] = useState({
     phone: "0712 345 678",
     name: "JOHN DOE",
@@ -44,7 +44,7 @@ export function EmbedUI() {
           className="grid bg-white w-full rounded-lg shadow-lg overflow-hidden border-8 border-gray-800"
           style={{
             gridTemplateRows: searchParams.showName ? "1fr 1fr 1fr" : "1fr 1fr",
-            aspectRatio: `${selectedTemplate.size.width} / ${selectedTemplate.size.height}`,
+            aspectRatio: `${selectedSize.width} / ${selectedSize.height}`,
             maxHeight: "400px",
           }}
         >
